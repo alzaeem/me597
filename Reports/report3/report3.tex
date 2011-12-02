@@ -1,303 +1,203 @@
-\documentclass{article}
-\usepackage{amsmath,graphicx}
+\documentclass[11pt]{article} % use larger type; default would be 10pt
 
-%%%%%%%%%% Start TeXmacs macros
-\newcommand{\tmop}[1]{\ensuremath{\operatorname{#1}}}
-\newcommand{\tmtextit}[1]{{\itshape{#1}}}
-%%%%%%%%%% End TeXmacs macros
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{fullpage}
+\usepackage[parfill]{parskip}
+
+\title{ME 597 Lab 3 Report}
+\author{Iain Peet \and Andrei Danaila \and Kevin Kyeong \and Abdel Hamid \and Ahmed Salam}
 
 \begin{document}
+\maketitle
 
-\title{ME 597 Lab 3 Report}\author{Iain Peet \ Andrei Danaila \ Kevin Kyeong \
-Abdel Hamid \ Ahmed Salam}\maketitle
-
-{\newpage}
+\clearpage
 
 \section*{Introduction}
-
-In this lab exercise the Potential Fields and Wavefront planning methods are
-implemented for planning the trajectory of the robot around a pre-defined
-obstacle grid map. The methods produce a path that the robot can follow to
-travel from a given start position towards a pre-defined goal while avoiding
-known obstacles.
+In this lab exercise the Potential Fields and Wavefront planning methods are implemented for planning the trajectory of the robot around a pre-defined obstacle grid map. The methods produce a path that the robot can follow to travel from a given start position towards a pre-defined goal while avoiding known obstacles.
 
 \section{Potential Fields Path Planning}
-
 \subsection{Theory}
-
-The potential fields method is based on the concept of potential function of
-which value is viewed as energy and gradient is force. The gradient is a
-vector $\nabla U (q) = DU (q)^T = [ \frac{\partial U}{\partial q_1}, ...,
-\frac{\partial U}{\partial q_m}]^T$ which points in the direction that locally
-maximally increases U{\footnote{S. Thrun. \tmtextit{Principles of Robot
-Motion}. The MIT Press, 2005. (pg.77)}}. This gradient then defines a vector
-field on an occupancy grid, and directs a robot as if it were a particle
-moving in a gradient vector field [footnote-nr]. Intuitively speaking, this
-approach can be viewed as if the gradients are forces acting on a positively
-charged particle which is being attracted to the negatively charged target
-goal [footnote-nr]. Additionally, the obstacles are considered as positively
-charged and defined as repulsive forces thus directing the robot away from the
-obstacles. Then, combining the potential functions of attractive and repulsive
-forces and negating the gradient of the potential function, a robot can simply
-follow the path of the gradient descent to reach the target goal where the
-gradient vanishes.
+The potential fields method is based on the concept of potential function of which value is viewed as energy and gradient is force.  The gradient is a vector $\nabla U(q) = DU(q)^T = [\frac{\partial U}{\partial q_1}, . . . , \frac{\partial U}{\partial q_m}]^T$ which points in the direction that locally maximally increases U\footnote{S. Thrun. \emph{Principles of Robot Motion}. The MIT Press, 2005. (pg.77)}.  This gradient then defines a vector field on an occupancy grid, and directs a robot as if it were a particle moving in a gradient vector field\footnotemark[\value{footnote}].  Intuitively speaking, this approach can be viewed as if the gradients are forces acting on a positively charged particle which is being attracted to the negatively charged target goal\footnotemark[\value{footnote}].  Additionally, the obstacles are considered as positively charged and defined as repulsive forces thus directing the robot away from the obstacles.  Then, combining the potential functions of attractive and repulsive forces and negating the gradient of the potential function, a robot can simply follow the path of the gradient descent to reach the target goal where the gradient vanishes.
 \begin{equation}
-  U (q) = U_{att} (q) + U_{rep} (q)
+	U(q) = U_{att}(q) + U_{rep}(q)
 \end{equation}
 \begin{equation}
-  \nabla U (q) = V (q) = V_{att} (q) + V_{rep} (q)
+	\nabla U(q) = V(q) = V_{att}(q) + V_{rep}(q)
 \end{equation}
 
 \subsubsection{The Attractive Potential $K_{attractive}$}
-
-There are different ways to define the attractive potential. The method used
-in this lab is one that grows quadratically with the distance to $q_{goal}$.
-Hence, the attractive potential function is defined as
+There are different ways to define the attractive potential.  The method used in this lab is one that grows quadratically with the distance to $q_{goal}$.  Hence, the attractive potential function is defined as
 \begin{equation}
-  U_{att} (q) = \frac{1}{2} K_{att} d^2 (q, q_{goal})
+	U_{att}(q) = \frac{1}{2}K_{att}d^2(q, q_{goal})
 \end{equation}
 and the gradient is
 \begin{equation}
-  \nabla U_{att} (q) = \nabla ( \frac{1}{2} K_{att} d^2 (q, q_{goal})) \\
-  = K_{att}  (q - q_{goal})
+	\nabla U_{att}(q) = \nabla (\frac{1}{2}K_{att}d^2(q,q_{goal})) \\
+	= K_{att}(q-q_{goal})
 \end{equation}
-where $K_{att}$ is the attractive potential coefficient, essentially a scale
-factor determining the effect of the attractive potential in the potential
-function. Such attractive potential can be illustrated as Figure
-\ref{f:potential}. \begin{figure}[h]
-  \includegraphics{report3-1.eps} \label{f:potential}
-  \caption{Graph of the Attractive Potential}
+where $K_{att}$ is the attractive potential coefficient, essentially a scale factor determining the effect of the attractive potential in the potential function.  Such attractive potential can be illustrated as Figure \ref{f:potential_att_graph}.
+\begin{figure}[hbt]
+ \centering
+ \includegraphics[scale=0.5]{potential_attractive.png}
+ \caption{Graph of the Attractive Potential}
+ \label{f:potential_att_graph}
 \end{figure}
 
 \subsubsection{The Repulsive Potential $K_{repulsive}$}
 
-While the attractive potential is attracting the robot particle to the target
-goal, the repulsive potential is defined throughout the occupancy grid map to
-push the robot away from the obstacles. The repulsive potential function is
-inversely quadratically proportional to the distance of obstacles and defined
-as
+While the attractive potential is attracting the robot particle to the target goal, the repulsive potential is defined throughout the occupancy grid map to push the robot away from the obstacles.  The repulsive potential function is inversely quadratically proportional to the distance of obstacles and defined as
 \begin{equation}
-  U_{rep} (q) = \left\{ \begin{array}{ll}
-    \frac{1}{2} K_{rep}  ( \frac{1}{D (q)} - \frac{1}{Q^{\ast}})^2, & D (q)
-    \leq Q^{\ast}\\
-    0, & D (q) > Q^{\ast}
-  \end{array} \right.
+	U_{rep}(q) = 
+	\begin{cases}
+		\frac{1}{2}K_{rep}(\frac{1}{D(q)}-\frac{1}{Q^*})^2, & D(q) \leq Q^{*} \\
+		0, & D(q) > Q^{*}
+	\end{cases}
 \end{equation}
 and the gradient is
 \begin{equation}
-  \nabla U_{rep} (q) = \left\{ \begin{array}{ll}
-    K_{rep}  ( \frac{1}{Q^{\ast}} - \frac{1}{D (q)})  \frac{1}{D^2 (q)} \nabla
-    D (q), & D (q) \leq Q^{\ast}\\
-    0, & D (q) > Q^{\ast}
-  \end{array} \right.
+	\nabla U_{rep}(q) = 
+	\begin{cases}
+		K_{rep}(\frac{1}{Q^*}-\frac{1}{D(q)})\frac{1}{D^2(q)}\nabla D(q), & D(q) \leq Q^{*} \\
+		0, & D(q) > Q^{*}
+	\end{cases}
 \end{equation}
-where $K_{rep}$ is a gain factor on the repulsive gradient and $Q^{\ast}$ is
-the threshold value that allows the robot to either ignore the effect of the
-repulsive potential from the particular obstacle when it's sufficiently far
-away from it.
+where $K_{rep}$ is a gain factor on the repulsive gradient and $Q^{*}$ is the threshold value that allows the robot to either ignore the effect of the repulsive potential from the particular obstacle when it's sufficiently far away from it.
 
-Additionally, it is to be noted that the repulsive potential function should
-be defined in terms of distances to individual obstacles rather than distance
-to the closet obstacle. Otherwise, when a path is formed through points where
-the distances to obstacles are equidistant, some oscillations may be formed.
+Additionally, it is to be noted that the repulsive potential function should be defined in terms of distances to individual obstacles rather than distance to the closet obstacle.  Otherwise, when a path is formed through points where the distances to obstacles are equidistant, some oscillations may be formed.
 
-Therefore, $D (q)$ is redefined as
+Therefore, $D(q)$ is redefined as
 \begin{equation}
-  d_i (q) = \min d (q, c)
+	d_i(q) = \min d(q,c)
 \end{equation}
 where c includes the closest points to all the obstacles in the grid map.
 
 Then, the gradient of that is
 \begin{equation}
-  \nabla d_i (q) = \frac{q - c}{d (q, c)}
+	\nabla d_i(q) = \frac{q-c}{d(q,c)}
 \end{equation}
+
 Finally, the repulsive potential function is redefined as
 \begin{equation}
-  U_{rep_i} (q) = \left\{ \begin{array}{ll}
-    \frac{1}{2} K_{rep}  ( \frac{1}{d_i (q)} - \frac{1}{Q_i^{\ast}})^2, &
-    \text{\tmop{if}} d_i (q) \leq Q_i^{\ast}\\
-    0, & \text{\tmop{if}} d_i (q) > Q_i^{\ast}
-  \end{array} \right.
+	U_{rep_{i}}(q) = 
+	\begin{cases}
+		\frac{1}{2}K_{rep}(\frac{1}{d_i(q)}-\frac{1}{Q_i^*})^2, & \mbox{if } d_i(q) \leq Q_i^* \\
+		0 ,& \mbox{if } d_i(q) > Q_i^*
+	\end{cases}
 \end{equation}
 
 \subsection{Results and Observations}
-
-The wavefront method for path planning successfully plotted a map through the
-obstacles. The downside of this algorithm was noticed as resulting in
-substatial increase in steering controller usage when compared to the
-wavefront planning method. This was caused to the large number of varying
+The wavefront method for path planning successfully plotted a map through the obstacles.
+The downside of this algorithm was noticed as resulting in substatial increase in steering controller usage
+when compared to the wavefront planning method. This was caused to the large number of varying
 gradients that the controller tried to follow on its way to the goal.
 
-\begin{figure}[h]
-  \includegraphics{report3-2.eps} \label{potFieldMap}
-  \caption{Traversed path through the obstacle map using the potential field
-  algorithm.}
+\begin{figure}[hbt]
+ \centering
+ \includegraphics[scale=0.80]{potentialFieldMapNavigation.png}
+ \caption{Traversed path through the obstacle map using the potential field algorithm.}
+ \label{potFieldMap}
 \end{figure}
 
-From \ref{potFieldMap} it is noticed how even though the simulation predicted
-a sharper turn, the robot steering controller could not follow it. Since the
-robot was not able to perform such sharp turns, the volume of the each
-obstacle was increased in simulation as to provide an artificial margin of
-safety to compensate for the lack of steering bandwidth.
+From \ref{potFieldMap} it is noticed how even though the simulation predicted a sharper turn, 
+the robot steering controller could not follow it. Since the robot was not able to perform 
+such sharp turns, the volume of the each obstacle was increased in simulation as to provide an artificial
+margin of safety to compensate for the lack of steering bandwidth.
 
-\begin{figure}[h]
-  \includegraphics{report3-3.eps} \label{potField}
-  \caption{Potential field map surface plot.}
+\begin{figure}[hbt]
+ \centering
+ \includegraphics[scale=0.60]{Potential_Field_Surf_Plot.png}
+ \caption{Potential field map surface plot.}
+ \label{potField_Surf}
 \end{figure}
+
 
 \subsection{Extended Potential Fields}
+The extended potential fields method follows from the theory of the potential fields described above, but extendes it by allowing the magnitude of the repulsive field for each obstacle to be weighted based on their bearing from the the robot's heading as it navigates through the map. This allows the robot to prioritize the avoidance of obstacles which are more likely to interfere with its motion; by setting higher weights for obstacles in front of the robot and reducing them for ones that are behind or to the side. The weighting function can be arbitrarily decided for the problem, for example by applying gradual decay or using a sharp cutoff.
 
-The extended potential fields method follows from the theory of the potential
-fields described above, but extendes it by allowing the magnitude of the
-repulsive field for each obstacle to be weighted based on their bearing from
-the the robot's heading as it navigates through the map. This allows the robot
-to prioritize the avoidance of obstacles which are more likely to interfere
-with its motion; by setting higher weights for obstacles in front of the robot
-and reducing them for ones that are behind or to the side. The weighting
-function can be arbitrarily decided for the problem, for example by applying
-gradual decay or using a sharp cutoff.
+In our implementation of the method we defined a field of view in degrees that is centered around the front of the robot. Any obstacles that fall within the field of view are weighted equally, and anything outside of it is ignored (weighted by zero). Furthermore, this method was only implemented in simulation since it requires the local gradient to be calculated online based on the current position as the robot navigates the map; this differs significantly from the two other planning methods which allow the robot to read a pre-calculated gradient map.
 
-In our implementation of the method we defined a field of view in degrees that
-is centered around the front of the robot. Any obstacles that fall within the
-field of view are weighted equally, and anything outside of it is ignored
-(weighted by zero). Furthermore, this method was only implemented in
-simulation since it requires the local gradient to be calculated online based
-on the current position as the robot navigates the map; this differs
-significantly from the two other planning methods which allow the robot to
-read a pre-calculated gradient map.
+The following figure shows the result of planning using the extended potential fields method versus the standard method for a map with two obstacles. In this test the potential field is defined as 90 degrees. The figure shows the advantage of using the extended method as it plans a shorter path once the robot is clear of most of the obstacles.
 
-The following figure shows the result of planning using the extended potential
-fields method versus the standard method for a map with two obstacles. In this
-test the potential field is defined as 90 degrees. The figure shows the
-advantage of using the extended method as it plans a shorter path once the
-robot is clear of most of the obstacles.
-
-\begin{figure}[h]
-  \includegraphics{report3-4.eps} \label{ExtPotField}
-  \caption{Extended Potential Field planning method}
-\end{figure}{\newpage}
-
+\begin{figure}[hbt]
+ \centering
+ \includegraphics[scale=0.60]{ExtPotField.png}
+ \caption{Extended Potential Field planning method}
+ \label{ExtPotField}
+\end{figure}
+\clearpage
 \section{Wavefront Path Planning}
 
 \subsection{Algorithm Description}
+The wavefront planning algorithm is fairly simple in principle.  Cost is propagated outward from the goal, with each cell being assigned a cost one greater than the minimum cost of cells reachable from that cell.  Equivalently, the occupancy grid may be interpreted as a graph where cells are nodes and cells which are reachable from each other are connected by edges.  All edges are assigned a constant cost, and the costs of reaching each cell from the goal are found using Dijkstra's Algorithm.
 
-The wavefront planning algorithm is fairly simple in principle. Cost is
-propagated outward from the goal, with each cell being assigned a cost one
-greater than the minimum cost of cells reachable from that cell. Equivalently,
-the occupancy grid may be interpreted as a graph where cells are nodes and
-cells which are reachable from each other are connected by edges. All edges
-are assigned a constant cost, and the costs of reaching each cell from the
-goal are found using Dijkstra's Algorithm.
-
-For this particular application, all cells which are horizonatally,
-vertically, or diagonally adjacent to a cell are considered to be reachable
-from that cell.
+For this particular application, all cells which are horizonatally, vertically, or diagonally adjacent to a cell are considered to be reachable from that cell.
 
 The wavefront cost computation algorithm is as follows:
-\begin{itemize}
-  \item Initialize the cost map to 0.
-  
-  \item Place the goal cell in the open set, with cost 1.
-  
-  \item While there are cells in the open set,
-  \begin{itemize}
-    \item Remove a cell from the open set. This is the current cell.
-    
-    \item For each cell reachable from the current cell,
-    \begin{itemize}
-      \item If the cell is occupied, move it directly to the closed set, with
-      cost 0.
-      
-      \item If the cell is in the unreached set, move it to the open set and
-      assign it a cost one greater than the current open cell.
-    \end{itemize}
-    \item Place the current cell into the closed set.
-  \end{itemize}
-\end{itemize}
-In the completed cost map, cells which have a cost of zero are obstacles. For
-all other cells, the shortest path to the goal requires $n - 1$ moves, where
-$n$ is the cost of the cell. In order to traverse a shortest path to the goal,
-the actor must always move to a cell which has lower cost than the current
-cell.
 
-For the actual robot, a wavefront descent steering controller is defined as
-follows. First, the optimal descent direction is computed as follows:
+\begin{itemize}
+ \item Initialize the cost map to 0.
+ \item Place the goal cell in the open set, with cost 1.
+ \item While there are cells in the open set, \begin{itemize}
+  \item Remove a cell from the open set.  This is the current cell.
+  \item For each cell reachable from the current cell, \begin{itemize}
+    \item If the cell is occupied, move it directly to the closed set, with cost 0.
+    \item If the cell is in the unreached set, move it to the open set and assign it a cost one greater than the current open cell.
+  \end{itemize}
+  \item Place the current cell into the closed set.
+ \end{itemize}
+\end{itemize}
+
+In the completed cost map, cells which have a cost of zero are obstacles.  For all other cells, the shortest path to the goal requires $n-1$ moves, where $n$ is the cost of the cell.  In order to traverse a shortest path to the goal, the actor must always move to a cell which has lower cost than the current cell.
+
+For the actual robot, a wavefront descent steering controller is defined as follows.  First, the optimal descent direction is computed as follows:
+
 \begin{equation}
-  \theta_{ref} = tan^{- 1} ( \frac{- \frac{\partial C}{\partial y}}{-
-  \frac{\partial C}{\partial x}})
+\theta_{ref} = tan^{-1}( \frac{ - \frac{\partial C}{\partial y} }{ - \frac{\partial C}{\partial x} } )
 \end{equation}
+
 The steering controller is a simple unity feedback controller:
 \begin{equation}
-  \delta = \theta_{ref} - \theta
+\delta = \theta_{ref} - \theta 
 \end{equation}
-It is likely that the shortest descent paths provided by the wavefront
-algorithm violate the kinematic constraints of the robot. The algorithm is
-adjusted as follows, to allows for path tracking error.
 
-First, buffer regions are added around obstacles, which are considered to be
-obstacle region for the purpose of wavefront cost computation. This ensures
-that the path provides a certain amount of tolerance for tracking error.
+It is likely that the shortest descent paths provided by the wavefront algorithm violate the kinematic constraints of the robot.  The algorithm is adjusted as follows, to allows for path tracking error.  
 
-Second, obstacle regions are assigned high cost values, such that their
-gradient always points to the centre of the obstacle. This ensures that, if
-the robot path overshoots into the buffer region, the cost gradient will be
-defined such that the robot will steer out of the buffer area and back into
-the 'good' region.
+First, buffer regions are added around obstacles, which are considered to be obstacle region for the purpose of wavefront cost computation.  This ensures that the path provides a certain amount of tolerance for tracking error.
+
+Second, obstacle regions are assigned high cost values, such that their gradient always points to the centre of the obstacle.  This ensures that, if the robot path overshoots into the buffer region, the cost gradient will be defined such that the robot will steer out of the buffer area and back into the 'good' region.
 
 \subsection{Simulation Results}
 
-\begin{figure}[h]
-  \includegraphics{report3-5.eps} \includegraphics{report3-6.eps}
-  \label{wave}
-  \caption{Wavefront costmaps and robot trajectories, for two randomly
-  generated maps.}
+\begin{figure}
+ \centering
+ \includegraphics[scale=0.45]{wavefront_good.png}
+ \includegraphics[scale=0.45]{wavefront_kinematic_fail.png}
+ \caption{Wavefront costmaps and robot trajectories, for two randomly generated maps.}
+ \label{wave_sim}
 \end{figure}
 
-Figure \ref{wave} shows simulated results for two different random maps. Note
-how, in the second simulation, the robot overshoots the desired trajectories,
-and recovers as intended.
+Figure \ref{wave_sim} shows simulated results for two different random maps.  Note how, in the second simulation, the robot overshoots the desired trajectories, and recovers as intended.
 
-{\newpage}
-
+\clearpage
 \subsection{Measured Results}
 
-\begin{figure}[h]
-  \includegraphics{report3-7.eps} \label{wave}
-  \caption{Simulated and measured robot trajectories, for lab obstacle set-up}
+\begin{figure} [hbt]
+ \centering
+ \includegraphics[scale=0.75]{wavefront_meas.png}
+ \caption{Simulated and measured robot trajectories, for lab obstacle set-up}
+ \label{wave_meas}
 \end{figure}
 
-Figure \ref{wave} shows simulated and measured robot trajectories. The true
-robot does not steer as sharply as the simulation predicts, which suggests
-that the modelled maximum steering angle is incorrect. Otherwise, the measured
-behaviour appears consistent with expectation.
+Figure \ref{wave_meas} shows simulated and measured robot trajectories.  The true robot does not steer as sharply as the simulation predicts, which suggests that the modelled maximum steering angle is incorrect.  Otherwise, the measured behaviour appears consistent with expectation.
 
 \subsection{Potential Improvements}
+A serious limitation of the wavefront algorithm in this application is the inability to account for the robot's kinematic constraints.  
 
-A serious limitation of the wavefront algorithm in this application is the
-inability to account for the robot's kinematic constraints.
+One possibility would be to extend the occupancy grid to three dimensions, with heading as the third dimension.  The adjacent cells could then be defined to be more plausible state transitions:  in the x and y dimensions, the robot must transition to the neighbor nearest to the current heading co-ordinate.  Heading may remain the same, or transition to adjacent headings.
 
-One possibility would be to extend the occupancy grid to three dimensions,
-with heading as the third dimension. The adjacent cells could then be defined
-to be more plausible state transitions: in the x and y dimensions, the robot
-must transition to the neighbor nearest to the current heading co-ordinate.
-Heading may remain the same, or transition to adjacent headings.
-
-It is expected that such a problem definition would result in a smoother path,
-which would be more easily tracked by the steering controller.
+It is expected that such a problem definition would result in a smoother path, which would be more easily tracked by the steering controller.
 
 \section*{Conclusion}
-
-Based on the above discussion both a wavefront and a potential field planning
-has been implemented successfully. Certain techniques were used in ensuring
-the success of these algorithms in the real world as opposed to just matlab
-simulations. Such techniques include include artificially increasing the size
-and effects of obstacles to overcome turning limitations. Another technique
-involves assigning high cost gradients, within these artificial buffers, to
-provide the robot with a way out if they enter these regions. We also
-demonstrated the superiority of the extended potential fields algorithm (EPF)
-over the standard potential field. It was observed that the path generated by
-EPF was shorter, due to the fact that unnecessary turning was eliminated.
-Finally it is to be noted that proportional steering control was sufficient in
-obtaining good heading tracking.
 
 \end{document}
