@@ -5,8 +5,8 @@
 \usepackage{fullpage}
 \usepackage[parfill]{parskip}
 
-\title{ME 597 Lab 3 Report}
-\author{Iain Peet \\ 20252201 
+\title{ME 597 Lab 3 Report \\ Group 2 (Team Farley)}
+\author{Iain Peet
 \and Andrei Danaila 
 \and Kevin Kyeong 
 \and Abdel Hamid 
@@ -18,7 +18,7 @@
 \clearpage
 
 \section*{Introduction}
-In this lab exercise the Potential Fields and Wavefront planning methods are implemented for planning the trajectory of the robot around a pre-defined obstacle grid map. The methods produce a path that the robot can follow to travel from a given start position towards a pre-defined goal while avoiding known obstacles.
+In this lab exercise the Potential Fields and Wavefront planning methods are to be implemented for planning the trajectory of the robot around a pre-defined obstacle grid map. The methods produce a path that the robot can follow to travel from a given start position towards a pre-defined goal while avoiding known obstacles.
 
 \section{Potential Fields Path Planning}
 \subsection{Theory}
@@ -91,10 +91,6 @@ Finally, the repulsive potential function is redefined as
 \end{equation}
 
 \subsection{Results and Observations}
-The wavefront method for path planning successfully plotted a map through the obstacles.
-The downside of this algorithm was noticed as resulting in substatial increase in steering controller usage
-when compared to the wavefront planning method. This was caused to the large number of varying
-gradients that the controller tried to follow on its way to the goal.
 
 \begin{figure}[hbt]
  \centering
@@ -103,9 +99,8 @@ gradients that the controller tried to follow on its way to the goal.
  \label{potFieldMap}
 \end{figure}
 
-From \ref{potFieldMap} it is noticed how even though the simulation predicted a sharper turn, 
-the robot steering controller could not follow it. Since the robot was not able to perform 
-such sharp turns, the volume of the each obstacle was increased in simulation as to provide an artificial
+The potential field method for path planning successfully plotted a map through the obstacles. Figure \ref{potFieldMap} showd. the potential field descent path, both as-planned and as-executed.  It may be noted that the theoretical path required an infeasibly sharpt turn, resulting in noticeably imperfect tracking.  Since the robot was not able to perform 
+such sharp turns, the volume of the each obstacle was increased in simulation so as to provide a 
 margin of safety to compensate for the lack of steering bandwidth.
 
 \begin{figure}[hbt]
@@ -133,7 +128,7 @@ The following figure shows the result of planning using the extended potential f
 \section{Wavefront Path Planning}
 
 \subsection{Algorithm Description}
-The wavefront planning algorithm is fairly simple in principle.  Cost is propagated outward from the goal, with each cell being assigned a cost one greater than the minimum cost of cells reachable from that cell.  Equivalently, the occupancy grid may be interpreted as a graph where cells are nodes and cells which are reachable from each other are connected by edges.  All edges are assigned a constant cost, and the costs of reaching each cell from the goal are found using Dijkstra's Algorithm.
+The wavefront planning algorithm is fairly simple in principle.  Cost is propagated outward from the goal, with each cell being assigned a cost one greater than the minimum cost of cells reachable from that cell.  Equivalently, the occupancy grid may be interpreted as a graph where cells are nodes and each cell is connected to its reachable neighbors with edges.  All edges are assigned a constant cost, and the costs of reaching each cell from the goal are found using Dijkstra's Algorithm.
 
 For this particular application, all cells which are horizonatally, vertically, or diagonally adjacent to a cell are considered to be reachable from that cell.
 
@@ -152,13 +147,14 @@ The wavefront cost computation algorithm is as follows:
  \end{itemize}
 \end{itemize}
 
-In the completed cost map, cells which have a cost of zero are obstacles.  For all other cells, the shortest path to the goal requires $n-1$ moves, where $n$ is the cost of the cell.  In order to traverse a shortest path to the goal, the actor must always move to a cell which has lower cost than the current cell.
+In the completed cost map, cells which have a cost of zero are obstacles.  For all other cells, the shortest path to the goal requires $n-1$ moves, where $n$ is the cost of the cell.  In order to traverse a shortest path to the goal, an actor must always move to a cell which has lower cost than the current cell.
 
-For the actual robot, a wavefront descent steering controller is defined as follows.  First, the optimal descent direction is computed as follows:
+For the actual robot, a wavefront descent steering controller is defined as follows.  First, the optimal descent direction is computed:
 
 \begin{equation}
 \theta_{ref} = tan^{-1}( \frac{ - \frac{\partial C}{\partial y} }{ - \frac{\partial C}{\partial x} } )
 \end{equation}
+Where $C$ is the wavefront cost map.
 
 The steering controller is a simple unity feedback controller:
 \begin{equation}
@@ -169,14 +165,14 @@ It is likely that the shortest descent paths provided by the wavefront algorithm
 
 First, buffer regions are added around obstacles, which are considered to be obstacle region for the purpose of wavefront cost computation.  This ensures that the path provides a certain amount of tolerance for tracking error.
 
-Second, obstacle regions are assigned high cost values, such that their gradient always points to the centre of the obstacle.  This ensures that, if the robot path overshoots into the buffer region, the cost gradient will be defined such that the robot will steer out of the buffer area and back into the 'good' region.
+Second, obstacle regions are assigned high cost values, such that their gradient always points to the centre of the obstacle.  This ensures that, if the robot path overshoots into the buffer region, the cost gradient will be defined such that the robot will steer out of the buffer area and back into the `good' region.
 
 \subsection{Simulation Results}
 
-\begin{figure}
+\begin{figure}[hbt]
  \centering
- \includegraphics[scale=0.45]{wavefront_good.png}
- \includegraphics[scale=0.45]{wavefront_kinematic_fail.png}
+ \includegraphics[scale=0.3]{wavefront_good.png}
+ \includegraphics[scale=0.3]{wavefront_kinematic_fail.png}
  \caption{Wavefront costmaps and robot trajectories, for two randomly generated maps.}
  \label{wave_sim}
 \end{figure}
